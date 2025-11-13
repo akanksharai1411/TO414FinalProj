@@ -87,3 +87,5 @@ lr_cm <- confusionMatrix(as.factor(lr_pred),
 
 lr_cm
 ```
+
+###Step 6 
