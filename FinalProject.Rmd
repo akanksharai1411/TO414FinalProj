@@ -89,3 +89,9 @@ lr_cm
 ```
 
 ###Step 6 
+
+Test
+```{r}
+print("hello world")
+```
+
