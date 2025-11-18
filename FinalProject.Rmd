@@ -70,7 +70,7 @@ marketing_test <- marketing_s[-train_rows, ]
 
 ```{r}
 lr_model <- glm(Response ~ ., data = marketing_train, family = binomial)
-summary(lr_model)
+summary(lr_model) # x 
 
 ```
 
