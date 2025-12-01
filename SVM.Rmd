@@ -1,0 +1,78 @@
+---
+title: "SVM Final Project"
+author: "Alejandro Vinot"
+date: "2025-12-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Step 1 - Read Data
+```{r}
+marketing_campaign <- read.csv("marketing_campaign.csv", sep = "\t", stringsAsFactors = TRUE)
+summary(marketing_campaign)
+```
+
+
+##Clean data
+```{r}
+marketing_campaign$Income <- ifelse(is.na(marketing_campaign$Income), 
+                                    mean(marketing_campaign$Income, na.rm = T), marketing_campaign$Income)
+
+marketing_campaign$Dt_Customer <- as.character(marketing_campaign$Dt_Customer)
+
+marketing_campaign$Year_Customer <- substr(marketing_campaign$Dt_Customer, 
+                                  nchar(marketing_campaign$Dt_Customer) - 3, 
+                                  nchar(marketing_campaign$Dt_Customer))
+
+marketing_campaign$Dt_Customer <- NULL
+marketing_campaign$ID <- NULL
+
+marketing_campaign$Year_Customer <- as.factor(marketing_campaign$Year_Customer)
+
+marketing_campaign$Z_CostContact <- NULL
+marketing_campaign$Z_Revenue <- NULL
+
+summary(marketing_campaign)
+
+marketing_campaign_dummies <- as.data.frame(model.matrix(~ . -1, data = marketing_campaign))
+
+minmax <- function(x){
+  (x - min(x))/(max(x) - min(x))
+}
+
+marketing_s <- as.data.frame(lapply(marketing_campaign_dummies, minmax))
+
+```
+
+
+##Step 3 - Train/Test Split 
+
+```{r}
+train_ratio <- 0.5
+set.seed(12345)
+train_rows <- sample(1:nrow(marketing_s), train_ratio*nrow(marketing_s))
+
+marketing_train <- marketing_s[train_rows, ]
+marketing_test <- marketing_s[-train_rows, ]
+
+```
+
+
+
+##Step 4 - Build Model and predict SVM
+
+```{r}
+
+library(kernlab)
+svm_model<-ksvm(as.factor(Response)~. , data= marketing_train, kernel="rbfdot")
+svm_pred<- predict(svm_model, marketing_test)
+library(caret)
+svm_cm<- confusionMatrix(as.factor(svm_pred), as.factor(marketing_test$Response), positive= "1")
+svm_cm
+```
+
+
+
