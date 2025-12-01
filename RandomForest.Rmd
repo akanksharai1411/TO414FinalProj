@@ -188,3 +188,6 @@ improved_rf_cm <- confusionMatrix(as.factor(improved_pred), factor(ifelse(market
 
 improved_rf_cm
 ```
+
+
+RandomForest File
