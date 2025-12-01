@@ -1,0 +1,123 @@
+---
+title: "KNN TO 414 Project"
+author: "Angel He"
+date: "2025-11-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("tidyverse")
+library(neuralnet)
+library(caret)
+library(class)
+library(C50)
+library(knitr)
+library(kableExtra)
+library(kernlab)
+library(randomForest)
+```
+
+## KNN 
+
+This is the rmd file for KNN model. The rmd file will include step 4 and 5. We will be running a basic KKN model and try to improve as much as possible.
+
+
+## Basic Model 
+
+```{r}
+set.seed(12345)
+knn_basic <- knn(train = marketing_train[, -35],
+                 test = marketing_test[, -35],
+                 cl = marketing_train[, 35],
+                 k = 10) 
+```
+
+```{r}
+knn_basic_cm <- confusionMatrix(as.factor(knn_basic), 
+                                as.factor(marketing_test[, 35]),
+                                positive = "1")
+
+knn_basic_cm
+```
+
+
+## Testing Different K-Value 
+
+To improve KNN model, we will be testing different k-value. So for this I will be using a loop function to test different value and compare by the following metrics: accuracy, kappa, sensitivity, specificity. 
+```{r}
+k_values <- seq(1, 20, by = 1)
+
+detailed_results <- list()
+
+for(k in k_values) {
+  set.seed(12345)
+
+  knn_pred <- knn(train = marketing_train[, -35],
+                  test = marketing_test[, -35],
+                  cl = marketing_train[, 35], 
+                  k = k)
+  
+  cm <- confusionMatrix(as.factor(knn_pred), 
+                       as.factor(marketing_test[, 35]),
+                       positive = "1")
+  detailed_results[[as.character(k)]] <- list(
+    k = k,
+    CM = cm,
+    Accuracy = cm$overall["Accuracy"],
+    Sensitivity = cm$byClass["Sensitivity"],
+    Specificity = cm$byClass["Specificity"],
+    Kappa = cm$overall["Kappa"]
+  )
+}
+
+summary_results <- do.call(rbind, lapply(detailed_results, function(x) {
+  data.frame(
+    k = x$k,
+    Accuracy = x$Accuracy,
+    Sensitivity = x$Sensitivity,
+    Specificity = x$Specificity,
+    Kappa = x$Kappa 
+  )
+}))
+
+print(summary_results)
+```
+
+Looking the result of this table, I think 6 is a good middle for all the k-value test. It provides the best trade-off between sensitivity (20.0%) and specificity (97.2%). With a Kappa score of 0.233 and 86.2% accuracy, k=6 outperforms alternatives in balanced classification performance.
+
+## Advance KNN Model 
+```{r}
+set.seed(12345)
+knn_advanced <- knn(train = marketing_train[, -35],
+                    test = marketing_test[, -35],
+                    cl = marketing_train[, 35],
+                    k = 6,
+                    prob = TRUE)
+```
+
+```{r}
+knn_advanced_cm <- confusionMatrix(as.factor(knn_advanced), 
+                                  as.factor(marketing_test[, 35]),
+                                  positive = "1")
+knn_advanced_cm
+```
+
+## Creating Value for Combine Data
+```{r}
+knn_advance_probs <- attr(knn_advanced,"prob") 
+knn_pred <- knn_advanced
+knn_prob_raw <- knn_advance_probs
+knn_prob_1 <- ifelse(knn_pred == "1", knn_prob_raw, 1 - knn_prob_raw)
+```
+
+
+
+
+
+
+
+
+
+
+
