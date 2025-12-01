@@ -1,0 +1,43 @@
+---
+title: "DT"
+author: "Sumedha Kommaraju"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("tidyverse")
+library(neuralnet)
+library(caret)
+library(class)
+library(C50)
+library(knitr)
+library(kableExtra)
+library(kernlab)
+library(randomForest)
+```
+
+#DT Model 
+
+```{r}
+dtree_model <- C5.0(as.factor(Response) ~ ., data = marketing_train)
+summary(dtree_model)
+plot(dtree_model)
+
+dtree_pred <- predict(dtree_model, marketing_test)
+dtree_probs <- predict(dtree_model, marketing_test, type = "prob")
+dtree_probs_1 <- dtree_probs[, "1"]
+
+dtree_pred <- factor(dtree_pred, levels = c("0", "1"))
+dtree_ref  <- factor(marketing_test$Response, levels = c("0", "1"))
+
+dtree_matrix <- confusionMatrix(dtree_pred, dtree_ref, positive = "1")
+dtree_matrix
+
+dt_cm <- confusionMatrix(dtree_pred, as.factor(marketing_test$Response), positive = "1")
+dt_cm$table
+dt_cm$overall["Accuracy"]
+dt_cm$overall["Kappa"]
+dt_cm$byClass["Sensitivity"]
+```

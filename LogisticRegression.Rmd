@@ -1,0 +1,190 @@
+---
+title: "Logistic Regression"
+author: "Akanksha Rai"
+date: "2025-12-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### This is the RMD FILE for LOGISTIC REGRESSION
+
+### Step 0: What's the point, what, why ?
+
+### Step 1 - Read Data
+
+```{r}
+marketing_campaign <- read.csv("marketing_campaign.csv", sep = "\t", stringsAsFactors = TRUE)
+summary(marketing_campaign)
+```
+
+## Clean data
+
+```{r}
+marketing_campaign$Income <- ifelse(is.na(marketing_campaign$Income), 
+                                    mean(marketing_campaign$Income, na.rm = T), marketing_campaign$Income)
+
+marketing_campaign$Dt_Customer <- as.character(marketing_campaign$Dt_Customer)
+
+marketing_campaign$Year_Customer <- substr(marketing_campaign$Dt_Customer, 
+                                  nchar(marketing_campaign$Dt_Customer) - 3, 
+                                  nchar(marketing_campaign$Dt_Customer))
+
+marketing_campaign$Dt_Customer <- NULL
+marketing_campaign$ID <- NULL
+
+marketing_campaign$Year_Customer <- as.factor(marketing_campaign$Year_Customer)
+
+marketing_campaign$Z_CostContact <- NULL
+marketing_campaign$Z_Revenue <- NULL
+
+summary(marketing_campaign)
+
+marketing_campaign_dummies <- as.data.frame(model.matrix(~ . -1, data = marketing_campaign))
+
+minmax <- function(x){
+  (x - min(x))/(max(x) - min(x))
+}
+
+marketing_s <- as.data.frame(lapply(marketing_campaign_dummies, minmax))
+
+```
+
+## Step 3 - Train/Test Split
+
+```{r}
+train_ratio <- 0.5
+set.seed(12345)
+train_rows <- sample(1:nrow(marketing_s), train_ratio*nrow(marketing_s))
+
+marketing_train <- marketing_s[train_rows, ]
+marketing_test <- marketing_s[-train_rows, ]
+
+```
+
+## Step 4 - Build Model
+
+### Base Model
+
+```{r}
+lr_model <- glm(Response ~ ., data = marketing_train, family = binomial)
+summary(lr_model)
+
+```
+
+## Improved Model #1- Interaction terms
+
+```{r}
+library(caret)
+# 1. Recent engagement with spending (Recency drives response, amplified by spending)
+marketing_train$Recency_x_Spending <- marketing_train$Recency * (marketing_train$MntMeatProducts + 
+                                                                   marketing_train$MntSweetProducts)
+
+# 2. Purchase channel consistency (multi-channel buyers are more likely to respond)
+marketing_train$TotalChannels <- marketing_train$NumWebPurchases + 
+                                 marketing_train$NumCatalogPurchases + 
+                                 marketing_train$NumStorePurchases
+marketing_train$Channel_Diversity <- (marketing_train$NumWebPurchases > 0) + 
+                                     (marketing_train$NumCatalogPurchases > 0) + 
+                                     (marketing_train$NumStorePurchases > 0)
+
+# 3. Past campaign success (previous acceptances increase likelihood of future acceptance)
+marketing_train$CampaignAcceptanceRate <- (marketing_train$AcceptedCmp1 + 
+                                           marketing_train$AcceptedCmp2 + 
+                                           marketing_train$AcceptedCmp3 + 
+                                           marketing_train$AcceptedCmp4 + 
+                                           marketing_train$AcceptedCmp5) / 5
+
+# 4. Income-based spending patterns (higher income + high spending shows strong commitment)
+marketing_train$Income_x_MeatSpending <- marketing_train$Income * marketing_train$MntMeatProducts
+marketing_train$HighIncomeHighSpender <- (marketing_train$Income > 0.5) * 
+                                         (marketing_train$MntMeatProducts > 0.5)
+
+# 5. Family status effects (children/teens dampen response, especially married)
+marketing_train$FamilySize <- marketing_train$Kidhome + marketing_train$Teenhome
+marketing_train$MarriedWithKids <- (marketing_train$Marital_StatusMarried) * 
+                                   (marketing_train$FamilySize > 0)
+
+# 6. Recency-Channel interaction (recent purchasers via web/catalog more responsive)
+marketing_train$RecentWebBuyer <- marketing_train$Recency * marketing_train$NumWebPurchases
+marketing_train$RecentCatalogBuyer <- marketing_train$Recency * marketing_train$NumCatalogPurchases
+
+# model with interactions
+lr_model_interactions <- glm(Response ~ 
+                             Education2n.Cycle + EducationBasic + EducationGraduation + 
+                             Marital_StatusMarried + Marital_StatusTogether + 
+                             Income + Teenhome + Recency + 
+                             MntMeatProducts + MntSweetProducts + 
+                             NumWebPurchases + NumCatalogPurchases + NumStorePurchases + 
+                             AcceptedCmp3 + AcceptedCmp4 + AcceptedCmp5 + 
+                             AcceptedCmp1 + AcceptedCmp2 + 
+                             Year_Customer2013 + Year_Customer2014 +
+                             # Interaction terms
+                             Recency_x_Spending +
+                             Channel_Diversity +
+                             CampaignAcceptanceRate +
+                             Income_x_MeatSpending +
+                             HighIncomeHighSpender +
+                             MarriedWithKids +
+                             RecentWebBuyer +
+                             RecentCatalogBuyer,
+                             data = marketing_train, 
+                             family = binomial)
+
+summary(lr_model_interactions)
+
+
+#recreate interaction terms in test data
+marketing_test$Recency_x_Spending <- marketing_test$Recency * (marketing_test$MntMeatProducts + 
+                                                                marketing_test$MntSweetProducts)
+marketing_test$TotalChannels <- marketing_test$NumWebPurchases + 
+                                marketing_test$NumCatalogPurchases + 
+                                marketing_test$NumStorePurchases
+marketing_test$Channel_Diversity <- (marketing_test$NumWebPurchases > 0) + 
+                                    (marketing_test$NumCatalogPurchases > 0) + 
+                                    (marketing_test$NumStorePurchases > 0)
+marketing_test$CampaignAcceptanceRate <- (marketing_test$AcceptedCmp1 + 
+                                          marketing_test$AcceptedCmp2 + 
+                                          marketing_test$AcceptedCmp3 + 
+                                          marketing_test$AcceptedCmp4 + 
+                                          marketing_test$AcceptedCmp5) / 5
+marketing_test$Income_x_MeatSpending <- marketing_test$Income * marketing_test$MntMeatProducts
+marketing_test$HighIncomeHighSpender <- (marketing_test$Income > 0.5) * 
+                                        (marketing_test$MntMeatProducts > 0.5)
+marketing_test$FamilySize <- marketing_test$Kidhome + marketing_test$Teenhome
+marketing_test$MarriedWithKids <- (marketing_test$Marital_StatusMarried) * 
+                                  (marketing_test$FamilySize > 0)
+marketing_test$RecentWebBuyer <- marketing_test$Recency * marketing_test$NumWebPurchases
+marketing_test$RecentCatalogBuyer <- marketing_test$Recency * marketing_test$NumCatalogPurchases
+```
+
+## Step 5 - Predict
+
+```{r}
+library(caret)
+lr_prob <- predict(lr_model, newdata = marketing_test, type = "response")
+lr_pred <- ifelse(lr_prob >= 0.5, 1, 0)
+
+lr_prob_interactions <- predict(lr_model_interactions, 
+                                newdata = marketing_test, 
+                                type = "response")
+lr_pred_interactions <- ifelse(lr_prob_interactions >= 0.5, 1, 0)
+
+```
+
+### Step 6 - Evaluate
+
+```{r}
+lr_cm <- confusionMatrix(as.factor(lr_pred), 
+                         as.factor(marketing_test$Response), 
+                         positive = "1")
+
+lr_cm
+
+lr_cm_interactions <- confusionMatrix(as.factor(lr_pred_interactions), 
+                                      as.factor(marketing_test$Response), 
+                                      positive = "1")
+lr_cm_interactions
+```
