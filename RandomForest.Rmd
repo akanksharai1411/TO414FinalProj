@@ -1,0 +1,190 @@
+---
+title: "ClassWork1106"
+author: "Akanksha Rai"
+date: "2025-11-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Step 0: What's the point, what, why ?
+
+
+
+### Step 1 - Read Data
+```{r}
+marketing_campaign <- read.csv("marketing_campaign.csv", sep = "\t", stringsAsFactors = TRUE)
+summary(marketing_campaign)
+```
+
+
+##Clean data
+```{r}
+marketing_campaign$Income <- ifelse(is.na(marketing_campaign$Income), 
+                                    mean(marketing_campaign$Income, na.rm = T), marketing_campaign$Income)
+
+marketing_campaign$Dt_Customer <- as.character(marketing_campaign$Dt_Customer)
+
+marketing_campaign$Year_Customer <- substr(marketing_campaign$Dt_Customer, 
+                                  nchar(marketing_campaign$Dt_Customer) - 3, 
+                                  nchar(marketing_campaign$Dt_Customer))
+
+marketing_campaign$Dt_Customer <- NULL
+marketing_campaign$ID <- NULL
+
+marketing_campaign$Year_Customer <- as.factor(marketing_campaign$Year_Customer)
+
+marketing_campaign$Z_CostContact <- NULL
+marketing_campaign$Z_Revenue <- NULL
+
+summary(marketing_campaign)
+
+marketing_campaign_dummies <- as.data.frame(model.matrix(~ . -1, data = marketing_campaign))
+
+minmax <- function(x){
+  (x - min(x))/(max(x) - min(x))
+}
+
+marketing_s <- as.data.frame(lapply(marketing_campaign_dummies, minmax))
+
+```
+
+
+##Step 3 - Train/Test Split 
+
+```{r}
+train_ratio <- 0.5
+set.seed(12345)
+train_rows <- sample(1:nrow(marketing_s), train_ratio*nrow(marketing_s))
+
+marketing_train <- marketing_s[train_rows, ]
+marketing_test <- marketing_s[-train_rows, ]
+
+```
+
+
+
+##Step 4 - Build Model
+
+```{r}
+lr_model <- glm(Response ~ ., data = marketing_train, family = binomial)
+summary(lr_model)
+
+```
+
+
+##Step 5 - Predict
+```{r}
+library(caret)
+lr_prob <- predict(lr_model, newdata = marketing_test, type = "response")
+lr_pred <- ifelse(lr_prob >= 0.5, 1, 0)
+
+lr_cm <- confusionMatrix(as.factor(lr_pred), 
+                         as.factor(marketing_test$Response), 
+                         positive = "1")
+
+lr_cm
+```
+
+### Random Forest Base
+
+```{r}
+library(randomForest)
+
+# Prepare training data for Random Forest:
+# Random Forest needs the target variable to be a factor
+marketing_s_train <- marketing_s[train_rows, ]
+marketing_s_test  <- marketing_s[-train_rows, ]
+
+# Convert Response into factor
+rf_train <- marketing_s_train
+rf_train$res_fac <- factor(rf_train$Response, levels = c(0,1))
+rf_train$Response <- NULL
+
+rf_test <- marketing_s_test
+rf_test$res_fac <- factor(rf_test$Response, levels = c(0,1))
+rf_test$Response <- NULL
+
+
+# Build the Base Random Forest model with 300 trees
+set.seed(123)
+rf_model <- randomForest(res_fac ~ ., data = rf_train, ntree = 300)
+
+# Predict on test data
+rf_pred <- predict(rf_model, newdata = rf_test, type = "response")
+rf_pred <- factor(as.character(rf_pred), levels = c("0","1"))
+
+# Compare predictions to real labels
+rf_cm <- confusionMatrix(rf_pred, factor(ifelse(marketing_s_test$Response==1,"1","0"), levels = c("0","1")), positive = "1")
+
+rf_cm
+```
+
+### Random Forest Improved
+
+```{r}
+# Store accuracy results for different mtry
+results <- data.frame(mtry = numeric(), accuracy = numeric())
+
+# 1. Balanced sampling so each tree sees both results (0,1) equally
+tbl <- table(rf_train$res_fac)
+balanced_size <- rep(min(tbl), 2)
+
+# Test several mtry values
+for (m in c(3,5,7,10)) {
+  
+  set.seed(123)
+  rf_temp <- randomForest(
+    res_fac ~ ., 
+    data = rf_train,
+    ntree = 1500,  # more trees = more stable
+    mtry = m, # trying different mtry
+    nodesize = 1, # allow deeper trees
+    sampsize = balanced_size,
+    importance = TRUE
+  )
+  
+# Predict on test data
+  temp_pred_class <- predict(rf_temp, rf_test, type = "response")
+  
+    # Compute accuracy
+  cm <- confusionMatrix(
+    temp_pred_class,
+    rf_test$res_fac,
+    positive = "1"
+  )
+  
+  acc <- cm$overall["Accuracy"]
+  
+  # Store results
+  results <- rbind(results, data.frame(mtry = m, accuracy = acc))
+  
+}
+
+results
+
+best_mtry <- results$mtry[which.max(results$accuracy)]
+best_mtry
+
+
+set.seed(123)
+rf_improved <- randomForest(
+  res_fac ~ ., 
+  data = rf_train,
+  ntree = 1500,
+  mtry = best_mtry,
+  nodesize = 1,
+  sampsize = balanced_size,
+  importance = TRUE
+)
+
+
+improved_probs <- predict(rf_improved, rf_test, type = "prob")[,2]
+improved_pred <- ifelse(improved_probs > 0.5, "1", "0")
+
+improved_rf_cm <- confusionMatrix(as.factor(improved_pred), factor(ifelse(marketing_s_test$Response==1,"1","0"), levels = c("0","1")), positive = "1")
+
+improved_rf_cm
+```
