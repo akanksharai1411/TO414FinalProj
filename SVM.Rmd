@@ -67,11 +67,17 @@ marketing_test <- marketing_s[-train_rows, ]
 ```{r}
 
 library(kernlab)
-svm_model<-ksvm(as.factor(Response)~. , data= marketing_train, kernel="rbfdot")
+svm_model<-ksvm(as.factor(Response)~. , data= marketing_train, kernel="rbfdot", prob.model = TRUE)
 svm_pred<- predict(svm_model, marketing_test)
 library(caret)
 svm_cm<- confusionMatrix(as.factor(svm_pred), as.factor(marketing_test$Response), positive= "1")
 svm_cm
+```
+
+##Use for second level model
+```{r}
+svm_probs <- predict(svm_model, marketing_test, type = "probabilities")
+svm_probs_1 <- svm_probs[, "1"]
 ```
 
 
