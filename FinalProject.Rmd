@@ -11,16 +11,15 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ### Step 0: What's the point, what, why ?
 
-
-
 ### Step 1 - Read Data
+
 ```{r}
 marketing_campaign <- read.csv("marketing_campaign.csv", sep = "\t", stringsAsFactors = TRUE)
 summary(marketing_campaign)
 ```
 
+### Step 2: Clean data
 
-##Clean data
 ```{r}
 marketing_campaign$Income <- ifelse(is.na(marketing_campaign$Income), 
                                     mean(marketing_campaign$Income, na.rm = T), marketing_campaign$Income)
@@ -51,8 +50,7 @@ marketing_s <- as.data.frame(lapply(marketing_campaign_dummies, minmax))
 
 ```
 
-
-##Step 3 - Train/Test Split 
+### Step 3 - Train/Test Split
 
 ```{r}
 train_ratio <- 0.5
@@ -64,33 +62,54 @@ marketing_test <- marketing_s[-train_rows, ]
 
 ```
 
+Our team has build the individual models in separate files for cleanness. For each individual model, we try to improve the model as much as we can. This way we get to combine the best result into our second level model, ensuring for a final model that has the best performance.
 
+Here's what we will use toward the second level model from the individual model
 
-##Step 4 - Build Model
+-   Logistic Regression: "lr_prob_interactions"
+
+-   KNN Model: "knn_prob_1"
+
+-   ANN Model: "ann_probs"
+
+-   Decision Tree: "dtree_probs_1"
+
+-   SVM: "svm_probs_1"
+
+-   Random Forest: "rf_prob_1"
+
+### Step 4 & 5: Stacked Model 
 
 ```{r}
-lr_model <- glm(Response ~ ., data = marketing_train, family = binomial)
-summary(lr_model) 
+combined <- data.frame(
+  glm = as.numeric(lr_prob_interactions),
+  knn = as.numeric(knn_prob_1),
+  ann = as.numeric(ann_probs),
+  dtree = as.numeric(dtree_probs_1),
+  svm = as.numeric(svm_probs_1),
+  rf = as.numeric(rf_prob_1),
+  actual = as.numeric(marketing_train$Response)
+)
+```
+
+```{r}
+set.seed(12345)
+combine_index <- sample(1:nrow(combined), 0.7 * nrow(combined))
+combined_train <- combined[combine_index, ]
+combined_test  <- combined[-combine_index, ]
 ```
 
 
-##Step 5 - Predict
 ```{r}
-library(caret)
-lr_prob <- predict(lr_model, newdata = marketing_test, type = "response")
-lr_pred <- ifelse(lr_prob >= 0.5, 1, 0)
+stacked_model <- C5.0(as.factor(actual) ~ ., data = combined_train)
+summary(stacked_model)
 
-lr_cm <- confusionMatrix(as.factor(lr_pred), 
-                         as.factor(marketing_test$Response), 
-                         positive = "1")
-
-lr_cm
+plot(stacked_model)
 ```
 
-###Step 6 
-
-Test
 ```{r}
-print("hello world")
+stacked_pred <- predict(stacked_model, combined_test)
+
+confusionMatrix(as.factor(stacked_pred), as.factor(combined_test$actual), positive = "1")
 ```
 
