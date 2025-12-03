@@ -88,7 +88,7 @@ combined <- data.frame(
   dtree = as.numeric(dtree_probs_1),
   svm = as.numeric(svm_probs_1),
   rf = as.numeric(rf_prob_1),
-  actual = as.numeric(marketing_train$Response)
+  actual = as.numeric(marketing_test$Response)
 )
 ```
 
@@ -112,4 +112,71 @@ stacked_pred <- predict(stacked_model, combined_test)
 
 confusionMatrix(as.factor(stacked_pred), as.factor(combined_test$actual), positive = "1")
 ```
+Cost Matrix: Our marketing campaign is target towards the true positive. Thus we want to increase the number as much as possible. To do this we will be using a cost matrix, putting a heavier cost on the false negative. 
+
+```{r, warning = FALSE }
+cost_01_values <- c(1, 2, 3)   
+cost_10_values <- c(2,3,4, 5, 6)  
+
+results <- data.frame(cost_01 = numeric(),
+                      cost_10 = numeric(),
+                      Accuracy = numeric(),
+                      Kappa = numeric(),
+                      Sensitivity = numeric())
+
+for (c01 in cost_01_values) {
+  for (c10 in cost_10_values) {
+    if (c10 > c01) {
+      cost_matrix <- matrix(c(0, c01,
+                              c10, 0), nrow = 2)
+      cost_model <- C5.0(as.factor(actual) ~ ., data = combined_train, cost = cost_matrix)
+      pred <- predict(cost_model, combined_test)
+      cm <- confusionMatrix(as.factor(pred), as.factor(combined_test$actual), positive = "1")
+      results <- rbind(results, data.frame(cost_01 = c01,
+                                           cost_10 = c10,
+                                           Accuracy = cm$overall['Accuracy'],
+                                           Kappa = cm$overall['Kappa'],
+                                           Sensitivity = cm$byClass['Sensitivity']))
+    }
+  }
+}
+
+print(results)
+```
+
+```{r}
+#Cost Matrix 
+cost_matrix <- matrix(c(0,1,4,0), nrow = 2)
+
+#Cost Model 
+cost_stacked <- C5.0(as.factor(actual) ~ ., data = combined_train, cost = cost_matrix)
+
+plot(cost_stacked)
+
+cost_pred <- predict(cost_stacked, combined_test)
+cost_cm <- confusionMatrix(as.factor(cost_pred), as.factor(combined_test$actual), positive = "1")
+cost_cm
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
