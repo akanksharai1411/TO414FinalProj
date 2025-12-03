@@ -1,0 +1,66 @@
+---
+title: "Cost and Comparison"
+author: "Angel"
+date: "2025-12-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Cost Calculation 
+
+The cost of contacting a customer and the revenue after client accpeting the campaign are given by the dataset which we will use. 
+
+The cost to contact: $30
+The revenue after client accept campaign: $110 
+
+We will be using the sensitivity and specificity to calculate the potential revenue earn an individual customer. 
+
+
+```{r}
+cost <- 30
+revenue <- 110
+
+extract_metrics_cost <- function(cm) {
+  sensitivity <- as.numeric(cm$byClass['Sensitivity'])
+  specificity <- as.numeric(cm$byClass['Specificity'])
+  
+  expected_revenue <- revenue * sensitivity -
+                      cost * (1-specificity)
+  data.frame(
+    Expected_Revenue = expected_revenue
+  )
+}
+comparison_table <- rbind(
+  GLM = extract_metrics_cost(lr_cm_interactions),
+  KNN = extract_metrics_cost(knn_advanced_cm),
+  ANN = extract_metrics_cost(ann_base_matrix),
+  DecisionTree = extract_metrics_cost(dt_cm),
+  SVM = extract_metrics_cost(svm_cm),
+  RandomForest = extract_metrics_cost(rf_cm),
+  CostStack = extract_metrics_cost(cost_cm)
+)
+kable(comparison_table, 
+      caption = "Comparison of All Models: Expected Cost",
+      digits = 2) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                full_width = F,
+                position = "center") %>%
+  row_spec(0, bold = TRUE, color = "white", background = "black")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
