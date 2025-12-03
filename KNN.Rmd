@@ -109,6 +109,7 @@ knn_advance_probs <- attr(knn_advanced,"prob")
 knn_pred <- knn_advanced
 knn_prob_raw <- knn_advance_probs
 knn_prob_1 <- ifelse(knn_pred == "1", knn_prob_raw, 1 - knn_prob_raw)
+
 ```
 
 
