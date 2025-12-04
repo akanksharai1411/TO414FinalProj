@@ -11,6 +11,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ### Step 0: What's the point, what, why ?
 
+The regional manager at Meijer’s is facing a challenge during the most important revenue-generating period of the year, Black Friday. Current marketing approaches  are failing to capitalize on this opportunity, and the company currently lacks the sophistication to identify which customers are most likely to respond to promotional offers, resulting in inefficient spending and missed revenue opportunities. Our model and analysis aims to help transform Meijer's Black Friday marketing from a generalized, mass-market broadcast approach into a precision-targeted, customer-centric strategy.
+
+
+We will be creating 6 different individual model and combine the result into one model for a stacked model. 
+
 ### Step 1 - Read Data
 
 ```{r}

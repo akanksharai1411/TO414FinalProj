@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
 ```
 
 ## Cost Calculation 
@@ -27,10 +28,10 @@ extract_metrics_cost <- function(cm) {
   sensitivity <- as.numeric(cm$byClass['Sensitivity'])
   specificity <- as.numeric(cm$byClass['Specificity'])
   
-  expected_revenue <- revenue * sensitivity -
+  expected_profit <- (revenue - cost) * sensitivity -
                       cost * (1-specificity)
   data.frame(
-    Expected_Revenue = expected_revenue
+    Expected_profit = expected_profit
   )
 }
 comparison_table <- rbind(
@@ -43,7 +44,7 @@ comparison_table <- rbind(
   CostStack = extract_metrics_cost(cost_cm)
 )
 kable(comparison_table, 
-      caption = "Comparison of All Models: Expected Cost",
+      caption = "Comparison of All Models: Expected Profit",
       digits = 2) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
                 full_width = F,
@@ -51,6 +52,49 @@ kable(comparison_table,
   row_spec(0, bold = TRUE, color = "white", background = "black")
 ```
 
+Cost Combine Decision Tree Result 
+```{r}
+library(ggplot2)
+library(dplyr)
+
+# Convert confusion matrix to data frame
+cm_to_df <- function(cm) {
+  cm_table <- as.data.frame(cm$table)
+  total <- sum(cm_table$Freq)
+  
+  cm_table <- cm_table %>%
+    mutate(Percentage = round((Freq / total) * 100, 1),
+           Label = paste(Freq, "\n(", Percentage, "%)", sep=""))
+  
+  return(cm_table)
+}
+
+# Create plot
+plot_confusion_matrix <- function(cm) {
+  cm_df <- cm_to_df(cm)
+  
+  # Reverse the factor levels for Prediction to match your desired display
+  cm_df$Reference <- factor(cm_df$Reference, levels = c("0", "1"))
+  cm_df$Prediction <- factor(cm_df$Prediction, levels = c("1", "0"))  # REVERSED!
+  
+  ggplot(data = cm_df, aes(x = Reference, y = Prediction)) +
+    geom_tile(aes(fill = Freq), color = "black") +
+    geom_text(aes(label = Label), size = 6, color = "white") +
+    scale_fill_gradient(low = "lightblue", high = "blue") +
+    scale_x_discrete(limits = c("0", "1")) +
+    # No scale_y_discrete needed since factor levels already set correctly
+    labs(title = "Result Using Cost Combined Decision Tree Model",
+         x = "Reference",
+         y = "Prediction") +
+    theme_minimal() +
+    theme(axis.text = element_text(size = 12),
+          axis.title = element_text(size = 14),
+          plot.title = element_text(size = 16, hjust = 0.5))
+}
+
+# Generate the plot
+plot_confusion_matrix(cost_cm)
+```
 
 
 
